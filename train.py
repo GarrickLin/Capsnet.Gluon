@@ -4,6 +4,19 @@ from mxnet import autograd
 from caps_net import CapsNet, margin_loss, mask_mse_loss
 import time
 
+class SimpleLRScheduler(mx.lr_scheduler.LRScheduler):
+    """A simple lr schedule that simply return `dynamic_lr`. We will set `dynamic_lr`
+    dynamically based on performance on the validation set.
+    """
+
+    def __init__(self, learning_rate=0.001):
+        super(SimpleLRScheduler, self).__init__()
+        self.learning_rate = learning_rate
+
+    def __call__(self, num_update):
+        return self.learning_rate
+    
+    
 def train_mnist(epochs, input_shape, n_class, num_routing, recon_loss_weight, ctx = mx.gpu(0), log_interval=20, **kwargs):
     batch_size, C, H, W = input_shape
     capsnet = CapsNet(n_class, num_routing, input_shape)
@@ -15,9 +28,12 @@ def train_mnist(epochs, input_shape, n_class, num_routing, recon_loss_weight, ct
     train_iter = mx.io.NDArrayIter(mnist['train_data'], mnist['train_label'], batch_size, shuffle=True)
     val_iter = mx.io.NDArrayIter(mnist['test_data'], mnist['test_label'], batch_size)    
 
-    
+    learning_rate = 0.001
+    lr_scheduler = SimpleLRScheduler(learning_rate)    
+    decay = 0.9
     trainer = gluon.Trainer(capsnet.collect_params(), 
-                            'adam', {'learning_rate': 0.0005, 'wd': 5e-4})
+                            optimizer='adam', 
+                            optimizer_params = {'lr_scheduler': lr_scheduler})
     
 
     acc_metric = mx.metric.Accuracy()
@@ -44,6 +60,7 @@ def train_mnist(epochs, input_shape, n_class, num_routing, recon_loss_weight, ct
                 elasp = time.time()-tic
                 print 'Epoch %2d, train %s %.5f, time %.1f sec, %f samples/s' % (epoch, acc_str, acc_val, elasp, batch_size/elasp)
         
+        lr_scheduler.learning_rate = learning_rate * (decay ** (epoch+1))
                 
                                         
 if __name__ == "__main__":

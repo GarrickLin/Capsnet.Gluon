@@ -17,7 +17,12 @@ class CapsNet(gluon.HybridBlock):
             self.net.add(PrimaryCap(dim_capsule=8, n_channels=32, kernel_size=9, strides=2, 
                                     padding=0))
             caps_in_shape = (N, 1152, 8)
-            self.net.add(CapsuleLayer(num_capsule=n_class, dim_capsule=16, num_routing=num_routing, in_shape=caps_in_shape))
+            weight_initializer = mx.init.Xavier(rnd_type='uniform', factor_type='avg', magnitude=3)
+            self.net.add(CapsuleLayer(num_capsule=n_class, 
+                                      dim_capsule=16, 
+                                      num_routing=num_routing,
+                                      in_shape=caps_in_shape, 
+                                      weight_initializer=weight_initializer))
             
             self.decoder = nn.HybridSequential(prefix='')
             self.decoder.add(nn.Dense(512, activation='relu'))

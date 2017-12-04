@@ -6,7 +6,7 @@ eps = np.finfo(float).eps
 
 def squash(F, vectors, axis=-1):
     s_squared_norm = F.sum(F.square(vectors), axis, keepdims=True)
-    scale = F.elemwise_div(s_squared_norm, F.elemwise_mul(1+s_squared_norm, F.sqrt(s_squared_norm)))
+    scale = s_squared_norm / ((1+s_squared_norm) * F.sqrt(s_squared_norm+eps))
     return F.broadcast_mul(scale, vectors)
 
 
@@ -149,9 +149,17 @@ class CapsuleLayer(gluon.HybridBlock):
     def hybrid_forward(self, F, x, weight):
         # x : (batch_size, input_num_capsule, input_dim_vector)
         # inputs_expand : (batch_size, input_num_capsule, 1, input_dim_vector, 1)
-        inputs_expand = F.expand_dims(x, 2)
-        inputs_expand = F.expand_dims(inputs_expand, 4)
-        #print "inputs_expand", inputs_expand.shape
+        #inputs_expand = F.expand_dims(x, 3)
+        #print "inputs_expand 1", inputs_expand.shape
+        #inputs_expand = F.expand_dims(inputs_expand, 2)
+        #print "inputs_expand 2", inputs_expand.shape
+        
+        #print "x", x.shape
+        inputs_expand = F.reshape(x, (0, 0, -4, -1, 1))
+        #print "inputs_expand 1", inputs_expand.shape
+        inputs_expand = F.reshape(inputs_expand, (0, 0, -4, 1, -1, 0))
+        #print "inputs_expand 2", inputs_expand.shape
+        
         # input_tiled (batch_size, input_num_capsule, num_capsule, input_dim_vector, 1)
         inputs_tiled = F.tile(inputs_expand, (1, 1, self.num_capsule, 1, 1))
         #print "inputs_tiled", inputs_tiled.shape
