@@ -55,8 +55,18 @@ def train_mnist(epochs, input_shape, n_class, num_routing, recon_loss_weight, ct
                              title='CapsNet traning plot',
                              legend=['Accuracy', 'Digit Loss', 'Mask Loss']                             
                          ))
+    val_plt = viz.line(Y=np.zeros((1,3)), 
+                       X=np.zeros((1,3)), 
+                       opts=dict(
+                           xlabel='Epoch',
+                           ylabel='Loss and Acc',
+                           title='CapsNet validation plot',
+                           legend=['Accuracy', 'Digit Loss', 'Mask Loss']                             
+                       ))    
+    hist_acc = 0
     #acc_metric = mx.metric.Accuracy()
     loss_metric = LossMetric(batch_size, 1)
+    val_metric = LossMetric(batch_size, 1)
     batches_one_epoch = 60000 / batch_size
     for epoch in range(epochs):
         train_iter.reset()
@@ -87,6 +97,27 @@ def train_mnist(epochs, input_shape, n_class, num_routing, recon_loss_weight, ct
                 print 'Epoch %2d, train %s %.5f, time %.1f sec, %d samples/s' % (epoch, "acc", acc, elasp, int(batch_size/elasp))
         
         lr_scheduler.learning_rate = learning_rate * (decay ** (epoch+1))
+        
+        val_metric.reset()
+        for i, batch in enumerate(val_iter):
+            x = batch.data[0].as_in_context(ctx)
+            y = batch.label[0].as_in_context(ctx)
+            y_ori = y
+            y = mx.nd.one_hot(y, n_class)
+            out_caps, out_mask = capsnet(x, y)
+            margin_loss_ = margin_loss(mx.nd, y, out_caps)                
+            mask_loss_ = mask_mse_loss(mx.nd, x, out_mask)
+            loss = (1-recon_loss_weight)*margin_loss_ + recon_loss_weight*mask_loss_   
+            val_metric.update([y_ori], [out_caps, loss, mask_loss_])
+        acc, digit_loss, mask_loss = val_metric.get_name_value()
+        viz.line(Y=np.array([acc, digit_loss, mask_loss]).reshape((1,3)),
+                 X=np.ones((1,3))*epoch,
+                 win=val_plt,
+                 update='append')        
+        if acc > hist_acc:
+            hist_acc = acc
+            capsnet.save_params("model/capsnet_%f.params"%acc)
+        print 'Epoch %2d, validation %s %.5f' % (epoch, "acc", acc)
                 
                                         
 if __name__ == "__main__":
