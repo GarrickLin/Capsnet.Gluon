@@ -52,9 +52,9 @@ def margin_loss(F, y_true, y_pred):
     :param y_pred: [None, num_capsule]
     :return: a scalar loss value.
     """    
-    L = y_true * F.square(F.maximum(0., 0.9 - y_pred)) + \
+    loss = y_true * F.square(F.maximum(0., 0.9 - y_pred)) + \
         0.5 * (1 - y_true) * F.square(F.maximum(0., y_pred - 0.1))
-    return L
+    return F.mean(F.sum(loss, 1))
     
 def mask_mse_loss(F, mask_true, mask_pred):
     data_flatten = F.flatten(mask_true)
