@@ -4,12 +4,13 @@ from mxnet.gluon import nn
 from caps_layers import PrimaryCap, CapsuleLayer, length, Mask, squash
 
 class CapsNet(gluon.HybridBlock):
-    def __init__(self, n_class, num_routing, input_shape, **kwargs):
+    def __init__(self, n_class, num_routing, input_shape, outmask=True, **kwargs):
         super(CapsNet, self).__init__(**kwargs)
         N, C, W, H = input_shape
         self.n_class = n_class
         self.batch_size = N
-        
+        self.outmask = outmask
+        self.input_shape = input_shape
         with self.name_scope():
             self.net = nn.HybridSequential(prefix='')
             self.net.add(nn.Conv2D(256, kernel_size=9, strides=1, padding=0, 
@@ -29,21 +30,24 @@ class CapsNet(gluon.HybridBlock):
             self.decoder.add(nn.Dense(1024, activation='relu'))
             self.decoder.add(nn.Dense(W*H, activation='sigmoid'))
             
-    def hybrid_forward(self, F, x, y):
+    def hybrid_forward(self, F, x, y=None):
         digitcaps = self.net(x)
         #print "digitcaps", digitcaps.shape
         out_caps = length(F, digitcaps)
-        y_reshaped = F.reshape(y, (self.batch_size, -4, self.n_class, -1))
-        #print "y_reshaped", y_reshaped.shape
-        # decode network        
-        #masked_by_y = Mask(F, [digitcaps, y])
-        masked_by_y = F.linalg_gemm2(y_reshaped, digitcaps, transpose_a=True)
-        masked_by_y = F.reshape(data=masked_by_y, shape=(-3, 0))
-        out_mask = self.decoder(masked_by_y)
-        #out_mask = F.reshape(out_mask, (N,C,W,H))
         
-        return out_caps, out_mask
-    
+        if self.outmask:
+            y_reshaped = F.reshape(y, (self.batch_size, -4, self.n_class, -1))
+            #print "y_reshaped", y_reshaped.shape
+            # decode network        
+            #masked_by_y = Mask(F, [digitcaps, y])
+            masked_by_y = F.linalg_gemm2(y_reshaped, digitcaps, transpose_a=True)
+            masked_by_y = F.reshape(data=masked_by_y, shape=(-3, 0))
+            out_mask = self.decoder(masked_by_y)
+            out_mask = F.reshape(out_mask, self.input_shape)            
+            return out_caps, out_mask
+        else:
+            return out_caps
+        
     
 def margin_loss(F, y_true, y_pred):
     """
@@ -57,8 +61,7 @@ def margin_loss(F, y_true, y_pred):
     return F.mean(F.sum(loss, 1))
     
 def mask_mse_loss(F, mask_true, mask_pred):
-    data_flatten = F.flatten(mask_true)
-    squared_error = F.square(mask_pred-data_flatten)
+    squared_error = F.square(mask_pred-mask_true)
     recon_error = F.mean(squared_error)
     return recon_error
     

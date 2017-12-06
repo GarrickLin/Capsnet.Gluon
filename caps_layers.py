@@ -147,18 +147,19 @@ class CapsuleLayer(gluon.HybridBlock):
                                           init=weight_initializer, allow_deferred_init=True)
     
     def hybrid_forward(self, F, x, weight):
+        #self.infer_shape()
         # x : (batch_size, input_num_capsule, input_dim_vector)
         # inputs_expand : (batch_size, input_num_capsule, 1, input_dim_vector, 1)
-        #inputs_expand = F.expand_dims(x, 3)
+        inputs_expand = F.expand_dims(x, 3)
         #print "inputs_expand 1", inputs_expand.shape
-        #inputs_expand = F.expand_dims(inputs_expand, 2)
+        inputs_expand = F.expand_dims(inputs_expand, 2)
         #print "inputs_expand 2", inputs_expand.shape
         
-        #print "x", x.shape
-        inputs_expand = F.reshape(x, (0, 0, -4, -1, 1))
-        #print "inputs_expand 1", inputs_expand.shape
-        inputs_expand = F.reshape(inputs_expand, (0, 0, -4, 1, -1, 0))
-        #print "inputs_expand 2", inputs_expand.shape
+        ##print "x", x.shape
+        #inputs_expand = F.reshape(x, (0, 0, -4, -1, 1))
+        ##print "inputs_expand 1", inputs_expand.shape
+        #inputs_expand = F.reshape(inputs_expand, (0, 0, -4, 1, -1, 0))
+        ##print "inputs_expand 2", inputs_expand.shape
         
         # input_tiled (batch_size, input_num_capsule, num_capsule, input_dim_vector, 1)
         inputs_tiled = F.tile(inputs_expand, (1, 1, self.num_capsule, 1, 1))
@@ -175,6 +176,7 @@ class CapsuleLayer(gluon.HybridBlock):
         inputs_hat_stopped = F.stop_gradient(inputs_hat)
         
         bias = F.zeros((self.batch_size, self.input_num_capsule, self.num_capsule, 1, 1))
+        #print "bias", bias.shape
         bias_ = F.stop_gradient(bias)
         
         for i in range(self.num_routing):

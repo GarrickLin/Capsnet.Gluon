@@ -38,7 +38,12 @@ def train_mnist(epochs, input_shape, n_class, num_routing, recon_loss_weight, ct
     val_iter = mx.io.MNISTIter(image="data/t10k-images.idx3-ubyte", 
                                label="data/t10k-labels.idx1-ubyte",
                                batch_size=batch_size, shuffle=False)    
-
+    
+    draw_num = 32
+    draw_batch = val_iter.next()
+    draw_data = draw_batch.data[0].as_in_context(ctx)
+    draw_label = draw_batch.label[0].as_in_context(ctx)
+    draw_label = mx.nd.one_hot(draw_label, n_class)
     learning_rate = 0.001
     lr_scheduler = SimpleLRScheduler(learning_rate)    
     decay = 0.9
@@ -63,8 +68,10 @@ def train_mnist(epochs, input_shape, n_class, num_routing, recon_loss_weight, ct
                            title='CapsNet validation plot',
                            legend=['Accuracy', 'Digit Loss', 'Mask Loss']                             
                        ))    
+    mask_plt = viz.images(
+        np.random.randn(draw_num*2, 1, 28, 28),
+        opts=dict(title='Mask images', caption='Mask'))    
     hist_acc = 0
-    #acc_metric = mx.metric.Accuracy()
     loss_metric = LossMetric(batch_size, 1)
     val_metric = LossMetric(batch_size, 1)
     batches_one_epoch = 60000 / batch_size
@@ -93,6 +100,13 @@ def train_mnist(epochs, input_shape, n_class, num_routing, recon_loss_weight, ct
                          X=np.ones((1,3))*batches_one_epoch*epoch+i,
                          win=train_plt,
                          update='append')
+                take_num = min(draw_num, batch_size)                
+                pred_label, pred_mask = capsnet(draw_data, draw_label)
+                draw = np.concatenate([draw_data[:take_num].asnumpy(), pred_mask[:take_num].asnumpy()])
+                viz.images(
+                    draw,
+                    win=mask_plt
+                )
                 elasp = time.time()-tic
                 print 'Epoch %2d, train %s %.5f, time %.1f sec, %d samples/s' % (epoch, "acc", acc, elasp, int(batch_size/elasp))
         
@@ -123,7 +137,6 @@ def train_mnist(epochs, input_shape, n_class, num_routing, recon_loss_weight, ct
 if __name__ == "__main__":
     from easydict import EasyDict as edict
     params = edict()
-    # epochs, input_shape, n_class, num_routing, recon_loss_weight, ctx = mx.gpu(0)
     params.epochs = 100
     params.batch_size = 80
     params.input_shape = (params.batch_size, 1, 28, 28)
