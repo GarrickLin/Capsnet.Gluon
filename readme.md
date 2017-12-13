@@ -25,6 +25,6 @@ The first three training epochs and validation graph (by [visdom](https://github
 ![](misc/val.png)
 ![](misc/mask.jpg)
 
-#### Reference
+### Reference
 [XifengGuo/CapsNet-Keras](https://github.com/XifengGuo/CapsNet-Keras)  
 [Soonhwan-Kwon/capsnet.mxnet](https://github.com/Soonhwan-Kwon/capsnet.mxnet)  
